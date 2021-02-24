@@ -33,6 +33,7 @@ from espnet2.train.trainer import Trainer
 from espnet2.utils.get_default_kwargs import get_default_kwargs
 from espnet2.utils.nested_dict_action import NestedDictAction
 from espnet2.utils.types import float_or_none
+from espnet2.utils.types import int_or_none
 from espnet2.utils.types import str2bool
 from espnet2.utils.types import str_or_none
 
@@ -133,6 +134,12 @@ class EnhancementTask(AbsTask):
             help="The file path of rir scp file.",
         )
         parser.add_argument(
+            "--rir_max_channel",
+            type=int_or_none,
+            default=None,
+            help="The maximum number of channels to read from each RIR.",
+        )
+        parser.add_argument(
             "--rir_apply_prob",
             type=float,
             default=1.0,
@@ -143,6 +150,12 @@ class EnhancementTask(AbsTask):
             type=str_or_none,
             default=None,
             help="The file path of noise scp file.",
+        )
+        parser.add_argument(
+            "--noise_max_channel",
+            type=int_or_none,
+            default=None,
+            help="The maximum number of channels to read from each noise sample.",
         )
         parser.add_argument(
             "--noise_apply_prob",

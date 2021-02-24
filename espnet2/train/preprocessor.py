@@ -139,8 +139,10 @@ class CommonPreprocessor(AbsPreprocessor):
         non_linguistic_symbols: Union[Path, str, Iterable[str]] = None,
         delimiter: str = None,
         rir_scp: str = None,
+        rir_max_channel: int = None,
         rir_apply_prob: float = 1.0,
         noise_scp: str = None,
+        noise_max_channel: int = None,
         noise_apply_prob: float = 1.0,
         noise_db_range: str = "3_10",
         speech_volume_normalize: float = None,
@@ -152,7 +154,9 @@ class CommonPreprocessor(AbsPreprocessor):
         self.speech_name = speech_name
         self.text_name = text_name
         self.speech_volume_normalize = speech_volume_normalize
+        self.rir_max_channel = rir_max_channel
         self.rir_apply_prob = rir_apply_prob
+        self.noise_max_channel = noise_max_channel
         self.noise_apply_prob = noise_apply_prob
 
         if token_type is not None:
@@ -237,7 +241,7 @@ class CommonPreprocessor(AbsPreprocessor):
                         )
 
                         # rir: (Nmic, Time)
-                        rir = rir.T
+                        rir = rir[:, :self.rir_max_channel].T
 
                         # speech: (Nmic, Time)
                         # Note that this operation doesn't change the signal length
@@ -281,7 +285,7 @@ class CommonPreprocessor(AbsPreprocessor):
                                 if len(noise) != nsamples:
                                     raise RuntimeError(f"Something wrong: {noise_path}")
                         # noise: (Nmic, Time)
-                        noise = noise.T
+                        noise = noise[:, :self.noise_max_channel].T
 
                         noise_power = (noise ** 2).mean()
                         scale = (

@@ -96,7 +96,12 @@ class ESPnetEnhancementModel(AbsESPnetModel):
             "PSM^2",
         ], f"mask type {mask_type} not supported"
         mask_label = []
-        for r in ref_spec:
+        for i in range(len(ref_spec)):
+            r = (
+                ref_spec[i]
+                if ref_spec[i].dim() == mix_spec.dim()
+                else ref_spec[i].unsqueeze(-2)
+            )
             mask = None
             if mask_type == "IBM":
                 flags = [abs(r) >= abs(n) for n in ref_spec]

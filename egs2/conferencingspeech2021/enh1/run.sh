@@ -23,7 +23,7 @@ test_sets="dev"
     --spk_num 1 \
     --local_data_opts "--stage 1 --stop-stage 3 --official_data_dir ${official_data_dir}" \
     --extra_wav_list "rirs.scp noises.scp" \
-    --enh_args "--rir_scp dump/raw/${train_set}/rirs.scp --rir_apply_prob 1.0 --noise_scp dump/raw/${train_set}/noises.scp --noise_apply_prob 1.0 --noise_db_range 0_30" \
+    --enh_args "--rir_scp dump/raw/${train_set}/rirs.scp --rir_max_channel 8 --rir_apply_prob 1.0 --noise_scp dump/raw/${train_set}/noises.scp --noise_max_channel 1 --noise_apply_prob 1.0 --noise_db_range 0_30" \
     --enh_config conf/tuning/train_enh_beamformer_mvdr.yaml \
     --use_dereverb_ref false \
     --use_noise_ref false \

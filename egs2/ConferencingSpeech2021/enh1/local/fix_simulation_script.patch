@@ -1,3 +1,13 @@
+diff --git a/requirements.txt b/requirements.txt
+index 8054697..3012192 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -3,5 +3,4 @@ numpy
+ pystoi
+ pesq
+ scipy
+-pyrirgen
+ librosa
 diff --git a/simulation/mix_wav.py b/simulation/mix_wav.py
 index 1cd05c1..d1cb9b6 100644
 --- a/simulation/mix_wav.py

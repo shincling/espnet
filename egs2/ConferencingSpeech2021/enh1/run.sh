@@ -5,13 +5,27 @@ set -e
 set -u
 set -o pipefail
 
+# run local/data.sh for more information
+official_data_dir=
+sample_rate=16k
+
+train_set=train
+valid_set=dev
+test_sets="dev"
+
 ./enh.sh \
-    --fs 16k \
-    --lang en \
-    --spk-num 1 \
-    --train_set train_nodev \
-    --valid_set train_dev \
-    --test_sets "train_dev test" \
-    --enh_config ./conf/train.yaml \
+    --train_set "${train_set}" \
+    --valid_set "${valid_set}" \
+    --test_sets "${test_sets}" \
+    --audio_format wav \
+    --fs ${sample_rate} \
+    --ngpu 1 \
+    --spk_num 1 \
+    --local_data_opts "--stage 1 --stop-stage 3 --official_data_dir ${official_data_dir}" \
+    --extra_wav_list "rirs.scp noises.scp" \
+    --enh_args "--rir_scp dump/raw/${train_set}/rirs.scp --rir_apply_prob 1.0 --noise_scp dump/raw/${train_set}/noises.scp --noise_apply_prob 1.0 --noise_db_range 0_30" \
+    --enh_config conf/tuning/train_enh_beamformer_mvdr.yaml \
+    --use_dereverb_ref false \
+    --use_noise_ref false \
     --inference_model "valid.loss.best.pth" \
     "$@"

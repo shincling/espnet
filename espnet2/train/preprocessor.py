@@ -106,7 +106,7 @@ def detect_non_silence(
     # power: (C, T)
     power = (framed_w ** 2).mean(axis=-1)
     # mean_power: (C,)
-    mean_power = power.mean(axis=-1)
+    mean_power = power.mean(axis=-1, keepdims=True)
     if np.all(mean_power == 0):
         return np.full(x.shape, fill_value=True, dtype=np.bool)
     # detect_frames: (C, T)

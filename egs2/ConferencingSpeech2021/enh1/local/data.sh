@@ -114,18 +114,14 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     if [ ! -d "${odir}/ConferencingSpeech2021" ]; then
         git clone https://github.com/ConferencingSpeech/ConferencingSpeech2021.git "${odir}/ConferencingSpeech2021"
     fi
-    rir_dir="${official_data_dir}/Training_set"
     (
         cd "${odir}/ConferencingSpeech2021"
-        if  [ ! "${rir_dir,,}" = "none" ] && [ -d "${rir_dir}" ]; then
-            # No need to install Pyrirgen now.
-            sed -i -e "s/pyrirgen/# pyrirgen/g" requirements.txt
-        fi
         python -m pip install -r requirements.txt
         # This patch is for simulation/mix_wav.py at commit 49d3b2fc47
         git apply "${odir}/fix_simulation_script.patch"
     )
 
+    rir_dir="${official_data_dir}/Training_set"
     # if [ "${rir_dir,,}" = "none" ] || [ ! -d "${rir_dir}" ]; then
     #     # Simulate RIRs if not provided
     #     if python -c 'import sys; assert(float(".".join(map(str, sys.version_info[:2]))) < 3.6)' 2>/dev/null; then

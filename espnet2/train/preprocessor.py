@@ -436,7 +436,8 @@ class ConferencingSpeechPreprocessor(CommonPreprocessor):
                             noise_rir = rir[:, C // 2 :: skip]
                         else:
                             raise RuntimeError(
-                                "Can not generate target channels data, please check data or parameters"
+                                "Can not generate target channels data, "
+                                "please check data or parameters"
                             )
 
                         # speech: (Nmic, Time)

@@ -429,12 +429,12 @@ class ConferencingSpeechPreprocessor(CommonPreprocessor):
                             )
                             clean_rir = rir
                             noise_rir = rir
-                        # circle array rir is [Lr, 32]
+                        # circle array rir is [32, Lr]
                         elif C % (self.rir_max_channel * 2) == 0:
                             skip = C // self.rir_max_channel // 2
                             # every C//self.rir_max_channel channels
-                            clean_rir = rir[:, : C // 2 : skip]
-                            noise_rir = rir[:, C // 2 :: skip]
+                            clean_rir = rir[: C // 2 : skip]
+                            noise_rir = rir[C // 2 :: skip]
                         else:
                             raise RuntimeError(
                                 "Can not generate target channels data, "

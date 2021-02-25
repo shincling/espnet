@@ -4,9 +4,10 @@
 # Apache 2.0
 import argparse
 from pathlib import Path
-from re import S
+import re
 
 from espnet2.fileio.datadir_writer import DatadirWriter
+from espnet2.utils.types import str2bool
 
 
 def prepare_data(args):
@@ -22,7 +23,7 @@ def prepare_data(args):
             line = line.strip()
             if not line:
                 continue
-            # /path/SSB18100388.wav -2 /path/noise-free-sound-0328.wav /path/circle/3.43_5.92_3.00_1.75_2.50_184.5997_262.1617_0.6728.wav 19.249479746268474 0.44975649854951305
+
             path_clean, start_time, path_noise, path_rir, snr, scale = line.split()
             uttid = "#".join(
                 [
@@ -35,13 +36,18 @@ def prepare_data(args):
                 ]
             )
             writer["wav.scp"][uttid] = audios[uttid]
-            writer["spk1.scp"][uttid] = path_clean
+            if args.use_reverb_ref:
+                repl = r"/reverb_ref/\1"
+            else:
+                repl = r"/noreverb_ref/\1"
+            writer["spk1.scp"][uttid] = re.sub(
+                r"/mix/([^\\]+\.wav$)", repl, audios[uttid]
+            )
             if "librispeech" in path_clean:
                 spkid = "-".join(path_clean.split("/")[-3:-1])
             else:
                 spkid = path_clean.split("/")[-2]
             writer["utt2spk"][uttid] = spkid
-            writer["noise1.scp"][uttid] = path_noise
 
 
 def get_parser():
@@ -62,6 +68,12 @@ def get_parser():
         type=str,
         required=True,
         help="Paths to the directory for storing *.scp, utt2spk, spk2utt",
+    )
+    parser.add_argument(
+        "--use_reverb_ref",
+        type=str2bool,
+        default=True,
+        help="True to use reverberant references, False to use non-reverberant ones",
     )
     return parser
 

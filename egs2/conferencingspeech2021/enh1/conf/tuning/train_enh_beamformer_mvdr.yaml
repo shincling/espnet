@@ -55,7 +55,7 @@ separator_conf:
     bunits: 512
     bprojs: 512
     badim: 320
-    ref_channel: 4
-    use_noise_mask: True
+    ref_channel: 0
+    use_noise_mask: False
     beamformer_type: mvdr_souden
     bdropout_rate: 0.0

@@ -35,7 +35,7 @@ def prepare_config(args):
             line = line.strip()
             if not line:
                 continue
-            # /path/SSB18100388.wav -2 /path/noise-free-sound-0328.wav /path/circle/3.43_5.92_3.00_1.75_2.50_184.5997_262.1617_0.6728.wav 19.249479746268474 0.44975649854951305
+
             path_clean, start_time, path_noise, path_rir, snr, scale = line.split()
             path_clean = speech_data[Path(path_clean).name]
             path_noise = noise_data[Path(path_noise).name]

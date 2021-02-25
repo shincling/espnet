@@ -288,6 +288,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     cat "${simu_data_path}"/dev_{circle,linear,non_uniform}_simu_mix.config > ${tmpdir}/dev.config
     python local/prepare_dev_data.py \
         --audiodirs "${simu_data_path}/wavs/dev" \
+        --use_reverb_ref False \
         --outdir data/dev \
         ${tmpdir}/dev.config
 

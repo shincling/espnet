@@ -8,7 +8,7 @@ from pathlib import Path
 
 def prepare_data(args):
     datalist = Path(args.datalist).expanduser().resolve()
-    audiodirs = [Path(audiodir).expanduser().resolve() for audiodir in args.audiodirs]
+    audiodirs = [Path(audiodir).expanduser() for audiodir in args.audiodirs]
     outfile = Path(args.outfile).expanduser().resolve()
     audios = {
         path.name: str(path)

@@ -117,7 +117,6 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     (
         cd "${odir}/ConferencingSpeech2021"
         # This patch is for simulation/mix_wav.py at commit 49d3b2fc47
-        git checkout 49d3b2fc47
         git apply "${odir}/fix_simulation_script.patch"
         python -m pip install -r requirements.txt
     )
@@ -173,18 +172,12 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
         # In this case, you may want to remove them from the list.
         bash ./prepare.sh
     )
-
-    # Prepare the simulated RIR lists for training and development, in case that
-    # ${odir}/ConferencingSpeech2021/simulation/prepare.sh fails to finish lines 48-55.
-    for name in linear circle non_uniform; do
-        for mode in train dev; do
-            python local/prepare_data_list.py \
-                --outfile "${odir}/ConferencingSpeech2021/simulation/data/${mode}_${name}_rir.lst" \
-                --audiodirs "${corpora_dir}/${name}" \
-                --audio-format "wav" \
-                "${odir}/ConferencingSpeech2021/selected_lists/${mode}/${name}.name"
-        done
-    done
+    # If the above script fail to finish successfully, please use the following command instead:
+    #
+    # local/prepare.sh \
+    #     --corpora_dir "${corpora_dir}" \
+    #     --selected_list_dir "${odir}/ConferencingSpeech2021/selected_lists" \
+    #     --outdir "${odir}/ConferencingSpeech2021/simulation/data"
 
     # Fill ${odir}/ConferencingSpeech2021/simulation/data/dev_*.config with real paths
     simu_data_path="${odir}/ConferencingSpeech2021/simulation/data"

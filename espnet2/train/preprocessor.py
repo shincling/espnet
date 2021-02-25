@@ -416,6 +416,7 @@ class ConferencingSpeechPreprocessor(CommonPreprocessor):
                         # rir: (Nmic, Time)
                         rir = rir.T
                         C = rir.shape[0]
+                        # linear array rir is [Lr, 16]
                         if (
                             C % self.rir_max_channel == 0
                             and C == 2 * self.rir_max_channel

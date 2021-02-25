@@ -11,7 +11,7 @@ log() {
 SECONDS=0
 
 help_message=$(cat << EOF
-Usage: $0 [--stage <stage>] [--stop_stage <stop_stage>] --official-data-dir <official_data_dir>
+Usage: $0 [--stage <stage>] [--stop_stage <stop_stage>] --use_reverb_ref <true/false> --official-data-dir <official_data_dir>
 
   required argument:
     --official-data-dir: path to the directory of offical data for ConferencingSpeech2021 with the following structure:
@@ -40,6 +40,7 @@ Usage: $0 [--stage <stage>] [--stop_stage <stop_stage>] --official-data-dir <off
   optional argument:
     [--stage]: 1 (default) or 3
     [--stop_stage]: 1 or 3 (default)
+    [--use_reverb_ref]: true or false (default)
 EOF
 )
 
@@ -47,6 +48,7 @@ EOF
 stage=1
 stop_stage=3
 official_data_dir=
+use_reverb_ref=false
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -281,7 +283,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     cat "${simu_data_path}"/dev_{circle,linear,non_uniform}_simu_mix.config > ${tmpdir}/dev.config
     python local/prepare_dev_data.py \
         --audiodirs "${simu_data_path}/wavs/dev" \
-        --use_reverb_ref False \
+        --use_reverb_ref ${use_reverb_ref} \
         --outdir data/dev \
         ${tmpdir}/dev.config
 

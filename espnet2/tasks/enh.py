@@ -196,10 +196,12 @@ class EnhancementTask(AbsTask):
                 train=train,
                 # NOTE(kamo): Check attribute existence for backward compatibility
                 rir_scp=args.rir_scp if hasattr(args, "rir_scp") else None,
+                rir_max_channel=args.rir_max_channel,
                 rir_apply_prob=args.rir_apply_prob
                 if hasattr(args, "rir_apply_prob")
                 else 1.0,
                 noise_scp=args.noise_scp if hasattr(args, "noise_scp") else None,
+                noise_max_channel=args.noise_max_channel,
                 noise_apply_prob=args.noise_apply_prob
                 if hasattr(args, "noise_apply_prob")
                 else 1.0,

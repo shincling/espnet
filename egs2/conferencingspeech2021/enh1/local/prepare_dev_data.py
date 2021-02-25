@@ -4,7 +4,6 @@
 # Apache 2.0
 import argparse
 from pathlib import Path
-from re import S
 
 from espnet2.fileio.datadir_writer import DatadirWriter
 

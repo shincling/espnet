@@ -241,7 +241,7 @@ class CommonPreprocessor(AbsPreprocessor):
                         )
 
                         # rir: (Nmic, Time)
-                        rir = rir[:, :self.rir_max_channel].T
+                        rir = rir[:, : self.rir_max_channel].T
 
                         # speech: (Nmic, Time)
                         # Note that this operation doesn't change the signal length
@@ -285,7 +285,7 @@ class CommonPreprocessor(AbsPreprocessor):
                                 if len(noise) != nsamples:
                                     raise RuntimeError(f"Something wrong: {noise_path}")
                         # noise: (Nmic, Time)
-                        noise = noise[:, :self.noise_max_channel].T
+                        noise = noise[:, : self.noise_max_channel].T
 
                         noise_power = (noise ** 2).mean()
                         scale = (

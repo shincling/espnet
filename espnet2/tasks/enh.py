@@ -29,6 +29,7 @@ from espnet2.torch_utils.initialize import initialize
 from espnet2.train.class_choices import ClassChoices
 from espnet2.train.collate_fn import CommonCollateFn
 from espnet2.train.preprocessor import CommonPreprocessor
+from espnet2.train.preprocessor import ConferencingSpeechPreprocessor
 from espnet2.train.trainer import Trainer
 from espnet2.utils.get_default_kwargs import get_default_kwargs
 from espnet2.utils.nested_dict_action import NestedDictAction
@@ -120,50 +121,56 @@ class EnhancementTask(AbsTask):
             default=False,
             help="Apply preprocessing to data or not",
         )
+        group.add_argument(
+            "--preprocessor_type",
+            type=str,
+            default="default",
+            choices=["default", "conferencingspeech"],
+        )
 
-        parser.add_argument(
+        group.add_argument(
             "--speech_volume_normalize",
             type=float_or_none,
             default=None,
             help="Scale the maximum amplitude to the given value.",
         )
-        parser.add_argument(
+        group.add_argument(
             "--rir_scp",
             type=str_or_none,
             default=None,
             help="The file path of rir scp file.",
         )
-        parser.add_argument(
+        group.add_argument(
             "--rir_max_channel",
             type=int_or_none,
             default=None,
             help="The maximum number of channels to read from each RIR.",
         )
-        parser.add_argument(
+        group.add_argument(
             "--rir_apply_prob",
             type=float,
             default=1.0,
             help="THe probability for applying RIR convolution.",
         )
-        parser.add_argument(
+        group.add_argument(
             "--noise_scp",
             type=str_or_none,
             default=None,
             help="The file path of noise scp file.",
         )
-        parser.add_argument(
+        group.add_argument(
             "--noise_max_channel",
             type=int_or_none,
             default=None,
             help="The maximum number of channels to read from each noise sample.",
         )
-        parser.add_argument(
+        group.add_argument(
             "--noise_apply_prob",
             type=float,
             default=1.0,
             help="The probability applying Noise adding.",
         )
-        parser.add_argument(
+        group.add_argument(
             "--noise_db_range",
             type=str,
             default="13_15",
@@ -192,7 +199,15 @@ class EnhancementTask(AbsTask):
     ) -> Optional[Callable[[str, Dict[str, np.array]], Dict[str, np.ndarray]]]:
         assert check_argument_types()
         if args.use_preprocessor:
-            retval = CommonPreprocessor(
+            if args.preprocessor_type == "default":
+                preproc = CommonPreprocessor
+            elif args.preprocessor_type == "conferencingspeech":
+                preproc = ConferencingSpeechPreprocessor
+            else:
+                raise ValueError(
+                    "Unknown preprocessor type: %s" % args.preprocessor_type
+                )
+            retval = preproc(
                 train=train,
                 # NOTE(kamo): Check attribute existence for backward compatibility
                 rir_scp=args.rir_scp if hasattr(args, "rir_scp") else None,

@@ -116,9 +116,10 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     fi
     (
         cd "${odir}/ConferencingSpeech2021"
-        python -m pip install -r requirements.txt
         # This patch is for simulation/mix_wav.py at commit 49d3b2fc47
+        git checkout 49d3b2fc47
         git apply "${odir}/fix_simulation_script.patch"
+        python -m pip install -r requirements.txt
     )
 
     rir_dir="${official_data_dir}/Training_set"

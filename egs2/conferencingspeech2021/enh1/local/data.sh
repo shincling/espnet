@@ -22,6 +22,7 @@ Usage: $0 [--stage <stage>] [--stop_stage <stop_stage>] --use_reverb_ref <true/f
          |   |-- readme.txt
          |   |-- realrecording_cut/
          |   |-- semireal+noise/
+         |   |-- simu_multiple_MA/
          |   \-- simu_single_MA/
          |
          |-- Training_set/
@@ -48,7 +49,8 @@ EOF
 stage=1
 stop_stage=3
 official_data_dir=
-use_reverb_ref=false
+use_official_dev=true
+use_reverb_ref=true
 
 log "$0 $*"
 . utils/parse_options.sh
@@ -196,34 +198,59 @@ fi
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     log "stage 2: Data Simulation"
 
-    # Expected data to be generated:
-    # ${odir}/ConferencingSpeech2021/simulation/data/wav/dev/
-    #  |-- simu_circle/
-    #  |   |-- dev_circle_simu_mix.config
-    #  |   |-- mix/*.wav             (1588 samples * 8 ch * 6 sec)
-    #  |   |-- noreverb_ref/*.wav    (1588 samples * 8 ch * 6 sec)
-    #  |   \-- reverb_ref/*.wav      (1588 samples * 8 ch * 6 sec)
-    #  |-- simu_linear/
-    #  |   |-- dev_linear_simu_mix.config
-    #  |   |-- mix/*.wav             (1588 samples * 8 ch * 6 sec)
-    #  |   |-- noreverb_ref/*.wav    (1588 samples * 8 ch * 6 sec)
-    #  |   \-- reverb_ref/*.wav      (1588 samples * 8 ch * 6 sec)
-    #  \-- simu_non_uniform/
-    #      |-- dev_non_uniform_simu_mix.config
-    #      |-- mix/*.wav             (1588 samples * 8 ch * 6 sec)
-    #      |-- noreverb_ref/*.wav    (1588 samples * 8 ch * 6 sec)
-    #      \-- reverb_ref/*.wav      (1588 samples * 8 ch * 6 sec)
-    (
-        cd "${odir}/ConferencingSpeech2021/simulation"
+    if ${use_official_dev}; then
+        log "Skip simulation (using official development data in track2)"
+
+        datadir="${odir}/ConferencingSpeech2021/simulation/data/wavs/dev"
         for name in linear circle non_uniform; do
-            log "Simulating with dev_${name}_simu_mix.config"
-            python mix_wav.py \
-                --mix_config_path data/dev_${name}_simu_mix.config \
-                --save_dir data/wavs/dev/simu_${name}/ \
-                --chunk_len 6 \
-                --generate_config False
+            mkdir -p "${datadir}/simu_${name}"
         done
-    )
+        track2dir="${official_data_dir}/Development_test_set/simu_multiple_MA"
+        for folder in mix reverb_ref noreverb_ref; do
+            ln -s "${track2dir}/dev_simu_linear_uniform_track2/${folder}" "${datadir}/simu_linear/${folder}"
+            ln -s "${track2dir}/dev_simu_circular_track2/${folder}" "${datadir}/simu_circle/${folder}"
+            ln -s "${track2dir}/dev_simu_linear_nonuniform_track2/${folder}" "${datadir}/simu_non_uniform/${folder}"
+        done
+        simu_data_path="${odir}/ConferencingSpeech2021/simulation/data"
+        for name in linear circle non_uniform; do
+            python local/config_from_generated.py \
+                --audiodir "${datadir}/simu_${name}" \
+                --audio-format wav \
+                --clean_list "${simu_data_path}/dev_clean.lst" \
+                --noise_list "${simu_data_path}/dev_noise.lst" \
+                --tag ${name} \
+                --outfile "${datadir}/simu_${name}/dev_${name}_simu_mix.config"
+        done
+    else
+        # Expected data to be generated:
+        # ${odir}/ConferencingSpeech2021/simulation/data/wav/dev/
+        #  |-- simu_circle/
+        #  |   |-- dev_circle_simu_mix.config
+        #  |   |-- mix/*.wav             (1588 samples * 8 ch * 6 sec)
+        #  |   |-- noreverb_ref/*.wav    (1588 samples * 8 ch * 6 sec)
+        #  |   \-- reverb_ref/*.wav      (1588 samples * 8 ch * 6 sec)
+        #  |-- simu_linear/
+        #  |   |-- dev_linear_simu_mix.config
+        #  |   |-- mix/*.wav             (1588 samples * 8 ch * 6 sec)
+        #  |   |-- noreverb_ref/*.wav    (1588 samples * 8 ch * 6 sec)
+        #  |   \-- reverb_ref/*.wav      (1588 samples * 8 ch * 6 sec)
+        #  \-- simu_non_uniform/
+        #      |-- dev_non_uniform_simu_mix.config
+        #      |-- mix/*.wav             (1588 samples * 8 ch * 6 sec)
+        #      |-- noreverb_ref/*.wav    (1588 samples * 8 ch * 6 sec)
+        #      \-- reverb_ref/*.wav      (1588 samples * 8 ch * 6 sec)
+        (
+            cd "${odir}/ConferencingSpeech2021/simulation"
+            for name in linear circle non_uniform; do
+                log "Simulating with dev_${name}_simu_mix.config"
+                python mix_wav.py \
+                    --mix_config_path data/dev_${name}_simu_mix.config \
+                    --save_dir data/wavs/dev/simu_${name}/ \
+                    --chunk_len 6 \
+                    --generate_config False
+            done
+        )
+    fi
 fi
 
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
@@ -280,18 +307,36 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     # Development data #
     ####################
     mkdir -p data/dev
-    cat "${simu_data_path}"/dev_{circle,linear,non_uniform}_simu_mix.config > ${tmpdir}/dev.config
-    python local/prepare_dev_data.py \
-        --audiodirs "${simu_data_path}/wavs/dev" \
-        --use_reverb_ref ${use_reverb_ref} \
-        --outdir data/dev \
-        ${tmpdir}/dev.config
+    if ${use_official_dev}; then
+        mkdir -p "${tmpdir}"/dev_{simu_circle,simu_linear,simu_non_uniform}
+        for name in linear circle non_uniform; do
+            python local/prepare_dev_data.py \
+                --audiodirs "${simu_data_path}"/wavs/dev/simu_${name}/mix \
+                --use_reverb_ref ${use_reverb_ref} \
+                --outdir "${tmpdir}"/dev_simu_${name} \
+                --uttid_suffix ${name} \
+                "${simu_data_path}"/wavs/dev/simu_${name}/dev_${name}_simu_mix.config
+        done
+        for f in spk1.scp utt2spk wav.scp; do
+            cat "${tmpdir}"/dev_{simu_circle,simu_linear,simu_non_uniform}/${f} | sort > data/dev/${f}
+        done
+    else
+        cat "${simu_data_path}"/wavs/dev/simu_circle/dev_circle_simu_mix.config \
+            "${simu_data_path}"/wavs/dev/simu_linear/dev_linear_simu_mix.config \
+            "${simu_data_path}"/wavs/dev/simu_non_uniform/dev_non_uniform_simu_mix.config \
+            > ${tmpdir}/dev.config
+        python local/prepare_dev_data.py \
+            --audiodirs "${simu_data_path}"/wavs/dev/{simu_circle,simu_linear,simu_non_uniform}/mix \
+            --use_reverb_ref ${use_reverb_ref} \
+            --outdir data/dev \
+            ${tmpdir}/dev.config
 
-    for f in noise1.scp spk1.scp utt2spk wav.scp; do
-        mv data/dev/${f} data/dev/.${f}
-        sort data/dev/.${f} > data/dev/${f}
-        rm data/dev/.${f}
-    done
+        for f in spk1.scp utt2spk wav.scp; do
+            mv data/dev/${f} data/dev/.${f}
+            sort data/dev/.${f} > data/dev/${f}
+            rm data/dev/.${f}
+        done
+    fi
     utils/utt2spk_to_spk2utt.pl data/dev/utt2spk > data/dev/spk2utt
     utils/validate_data_dir.sh --no-feats --no-text data/dev
 

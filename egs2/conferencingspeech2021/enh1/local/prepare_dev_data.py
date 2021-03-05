@@ -18,6 +18,7 @@ def prepare_data(args):
         for audiodir in audiodirs
         for path in audiodir.rglob("*.wav")
     }
+    suffix = "_" + args.uttid_suffix if args.uttid_suffix else ""
     with DatadirWriter(args.outdir) as writer, config_file.open("r") as f:
         for line in f:
             line = line.strip()
@@ -35,19 +36,19 @@ def prepare_data(args):
                     scale,
                 ]
             )
-            writer["wav.scp"][uttid] = audios[uttid]
+            writer["wav.scp"][uttid + suffix] = audios[uttid]
             if args.use_reverb_ref:
                 repl = r"/reverb_ref/\1"
             else:
                 repl = r"/noreverb_ref/\1"
-            writer["spk1.scp"][uttid] = re.sub(
+            writer["spk1.scp"][uttid + suffix] = re.sub(
                 r"/mix/([^\\]+\.wav$)", repl, audios[uttid]
             )
             if "librispeech" in path_clean:
                 spkid = "-".join(path_clean.split("/")[-3:-1])
             else:
                 spkid = path_clean.split("/")[-2]
-            writer["utt2spk"][uttid] = spkid
+            writer["utt2spk"][uttid + suffix] = spkid
 
 
 def get_parser():
@@ -62,6 +63,12 @@ def get_parser():
         nargs="+",
         required=True,
         help="Paths to the directories containing simulated audio files",
+    )
+    parser.add_argument(
+        "--uttid_suffix",
+        type=str,
+        default="",
+        help="suffix to be appended to each utterance ID",
     )
     parser.add_argument(
         "--outdir",

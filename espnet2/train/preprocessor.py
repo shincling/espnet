@@ -386,6 +386,56 @@ class CommonPreprocessor_multi(AbsPreprocessor):
 class ConferencingSpeechPreprocessor(CommonPreprocessor):
     """A specific preprocessor for ConferencingSpeech 2021."""
 
+    def __init__(
+        self,
+        train: bool,
+        token_type: str = None,
+        token_list: Union[Path, str, Iterable[str]] = None,
+        bpemodel: Union[Path, str, Iterable[str]] = None,
+        text_cleaner: Collection[str] = None,
+        g2p_type: str = None,
+        unk_symbol: str = "<unk>",
+        space_symbol: str = "<space>",
+        non_linguistic_symbols: Union[Path, str, Iterable[str]] = None,
+        delimiter: str = None,
+        rir_scp: str = None,
+        rir_max_channel: int = None,
+        rir_apply_prob: float = 1.0,
+        noise_scp: str = None,
+        noise_max_channel: int = None,
+        noise_apply_prob: float = 1.0,
+        noise_db_range: str = "3_10",
+        speech_volume_normalize: float = None,
+        speech_name: str = "speech_mix",
+        speech_ref_name: str = "speech_ref1",
+        use_reverb_ref: bool = True,
+        text_name: str = "text",
+    ):
+        super().__init__(
+            train,
+            token_type,
+            token_list,
+            bpemodel,
+            text_cleaner,
+            g2p_type,
+            unk_symbol,
+            space_symbol,
+            non_linguistic_symbols,
+            delimiter,
+            rir_scp,
+            rir_max_channel,
+            rir_apply_prob,
+            noise_scp,
+            noise_max_channel,
+            noise_apply_prob,
+            noise_db_range,
+            speech_volume_normalize,
+            speech_name,
+            text_name,
+        )
+        self.speech_ref_name = speech_ref_name
+        self.use_reverb_ref = use_reverb_ref
+
     def __call__(
         self, uid: str, data: Dict[str, Union[str, np.ndarray]]
     ) -> Dict[str, np.ndarray]:
@@ -416,7 +466,7 @@ class ConferencingSpeechPreprocessor(CommonPreprocessor):
                         # rir: (Nmic, Time)
                         rir = rir.T
                         C = rir.shape[0]
-                        # linear array rir is [Lr, 16]
+                        # linear array rir is [16, Lr]
                         if (
                             C % self.rir_max_channel == 0
                             and C == 2 * self.rir_max_channel
@@ -449,6 +499,10 @@ class ConferencingSpeechPreprocessor(CommonPreprocessor):
                         # Reverse mean power to the original power
                         power2 = (speech[detect_non_silence(speech)] ** 2).mean()
                         speech = np.sqrt(power / max(power2, 1e-10)) * speech
+
+                        if self.use_reverb_ref and self.speech_ref_name in data:
+                            # (Time, Nmic)
+                            data[self.speech_ref_name] = speech.T
 
                 # 2. Add Noise
                 if (

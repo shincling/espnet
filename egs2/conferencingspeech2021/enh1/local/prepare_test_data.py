@@ -29,7 +29,7 @@ def prepare_data(args):
         for uttid, utt_path in audios.items():
             writer["wav.scp"][uttid] = utt_path
             writer["spk1.scp"][uttid] = utt_path
-            writer["utt2spk"][uttid] = "unknown"
+            writer["utt2spk"][uttid] = uttid
 
 
 def get_parser():

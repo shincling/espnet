@@ -408,7 +408,7 @@ class ConferencingSpeechPreprocessor(CommonPreprocessor):
         speech_volume_normalize: float = None,
         speech_name: str = "speech_mix",
         speech_ref_name: str = "speech_ref1",
-        use_reverb_ref: bool = True,
+        use_reverb_ref: bool = False,
         text_name: str = "text",
     ):
         super().__init__(
@@ -441,6 +441,7 @@ class ConferencingSpeechPreprocessor(CommonPreprocessor):
     ) -> Dict[str, np.ndarray]:
         assert check_argument_types()
 
+        predelay = 50  # milliseconds
         if self.speech_name in data:
             if self.train and self.rirs is not None and self.noises is not None:
                 speech = data[self.speech_name]
@@ -459,7 +460,7 @@ class ConferencingSpeechPreprocessor(CommonPreprocessor):
                 if self.rirs is not None and self.rir_apply_prob >= np.random.random():
                     rir_path = np.random.choice(self.rirs)
                     if rir_path is not None:
-                        rir, _ = soundfile.read(
+                        rir, fs = soundfile.read(
                             rir_path, dtype=np.float64, always_2d=True
                         )
 
@@ -503,6 +504,15 @@ class ConferencingSpeechPreprocessor(CommonPreprocessor):
                         if self.use_reverb_ref and self.speech_ref_name in data:
                             # (Time, Nmic)
                             data[self.speech_ref_name] = speech.T
+                        else:
+                            # non-reverberant clean speech
+                            dt = np.argmax(clean_rir, axis=1).min()
+                            et = dt + (predelay * fs) // 1000
+                            clean_rir_early = clean_rir[:, :et]
+                            # (Time, Nmic)
+                            data[self.speech_ref_name] = scipy.signal.convolve(
+                                speech, clean_rir_early, mode="full"
+                            )[:, : speech.shape[1]].T
 
                 # 2. Add Noise
                 if (

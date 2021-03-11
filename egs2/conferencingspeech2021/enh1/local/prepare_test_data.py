@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2021  Shanghai Jiao Tong University (Authors: Wangyou Zhang)
+# Copyright 2021  Shanghai Jiao Tong University (Authors: Jing Shi)
 # Apache 2.0
 import argparse
 from pathlib import Path
@@ -27,8 +27,8 @@ def prepare_data(args):
     prefix =  args.uttid_prefix + "_" if args.uttid_prefix else ""
     with DatadirWriter(args.outdir) as writer:
         for uttid, utt_path in audios.items():
-            writer["wav.scp"][uttid] = audios[uttid]
-            writer["spk1.scp"][uttid] = audios[uttid]
+            writer["wav.scp"][uttid] = utt_path
+            writer["spk1.scp"][uttid] = utt_path
             writer["utt2spk"][uttid] = "unknown"
 
 

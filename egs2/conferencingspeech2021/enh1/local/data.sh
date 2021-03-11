@@ -34,9 +34,10 @@ Usage: $0 [--stage <stage>] [--stop_stage <stop_stage>] --use_reverb_ref <true/f
          |   \-- train_record_noise/
          |
          |-- Evaluation_set/
-         |   |--eval_data/
-         |      |--tast1/
-         |      \--task2/
+         |   |-- eval_data/
+         |   |   |--tast1/
+         |   |   \--task2/
+         |   \-- Readme.txt
          |
          \-- config_files_simulation_train/
              |-- train_simu_circle.config

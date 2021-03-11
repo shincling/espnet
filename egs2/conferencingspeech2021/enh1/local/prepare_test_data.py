@@ -14,7 +14,9 @@ def prepare_data(args):
     audiodirs = [Path(audiodir).expanduser().resolve() for audiodir in args.audiodirs]
     if args.uttid_prefix:
         audios = {
-            "_".join([args.uttid_prefix, str(path.parent.stem), str(path.stem)]): str(path)
+            "_".join([args.uttid_prefix, str(path.parent.stem), str(path.stem)]): str(
+                path
+            )
             for audiodir in audiodirs
             for path in audiodir.rglob("*.wav")
         }
@@ -24,7 +26,7 @@ def prepare_data(args):
             for audiodir in audiodirs
             for path in audiodir.rglob("*.wav")
         }
-    prefix =  args.uttid_prefix + "_" if args.uttid_prefix else ""
+    prefix = args.uttid_prefix + "_" if args.uttid_prefix else ""
     with DatadirWriter(args.outdir) as writer:
         for uttid, utt_path in audios.items():
             writer["wav.scp"][uttid] = utt_path

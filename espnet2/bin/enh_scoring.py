@@ -77,8 +77,10 @@ def scoring(
 
             for i in range(num_spk):
                 stoi_score = stoi(ref[i], inf[int(perm[i])], fs_sig=sample_rate)
-                estoi_score = stoi(ref[i], inf[int(perm[i])], fs_sig=sample_rate, extended=True)
-                pesq_score = pesq(sample_rate, ref[i], inf[int(perm[i])], 'wb')
+                estoi_score = stoi(
+                    ref[i], inf[int(perm[i])], fs_sig=sample_rate, extended=True
+                )
+                pesq_score = pesq(sample_rate, ref[i], inf[int(perm[i])], "wb")
                 si_snr_score = -float(
                     ESPnetEnhancementModel.si_snr_loss(
                         torch.from_numpy(ref[i][None, ...]),

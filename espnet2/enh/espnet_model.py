@@ -245,7 +245,7 @@ class ESPnetEnhancementModel(AbsESPnetModel):
                 ci_sdr_loss, perm = self._permutation_loss(
                     speech_ref, speech_pre, self.ci_sdr_loss, perm=perm
                 )
-                ci_sdr= -ci_sdr_loss.detach()
+                ci_sdr = -ci_sdr_loss.detach()
 
             stats = dict(
                 si_snr=si_snr,

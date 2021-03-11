@@ -33,21 +33,26 @@ Usage: $0 [--stage <stage>] [--stop_stage <stop_stage>] --use_reverb_ref <true/f
          |   |-- selected_lists/
          |   \-- train_record_noise/
          |
+         |-- Evaluation_set/
+         |   |--eval_data/
+         |      |--tast1/
+         |      \--task2/
+         |
          \-- config_files_simulation_train/
              |-- train_simu_circle.config
              |-- train_simu_linear.config
              \-- train_simu_non_uniform.config
 
   optional argument:
-    [--stage]: 1 (default) or 3
-    [--stop_stage]: 1 or 3 (default)
+    [--stage]: 1 (default) or 4
+    [--stop_stage]: 1 or 4 (default)
     [--use_reverb_ref]: true or false (default)
 EOF
 )
 
 
 stage=1
-stop_stage=3
+stop_stage=4
 official_data_dir=
 use_official_dev=true
 use_reverb_ref=true
@@ -339,6 +344,29 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     fi
     utils/utt2spk_to_spk2utt.pl data/dev/utt2spk > data/dev/spk2utt
     utils/validate_data_dir.sh --no-feats --no-text data/dev
+
+    rm -rf "$tmpdir"
+fi
+
+if [ ${stage} -le 4 ] && [ ${stop_stage} -ge 4 ]; then
+    log "stage 4: Prepare test data"
+    tmpdir=$(mktemp -d /tmp/conferencingspeech.XXXX)
+    ########################
+    # Evaluation test data #
+    ########################
+    mkdir -p data/test
+    mkdir -p "${tmpdir}"/test_{simu_circle,simu_linear,simu_non_uniform}
+    for name in real-recording semi-real-playback semi-real-realspk; do
+        python local/prepare_test_data.py \
+            --audiodirs "${official_data_dir}"/Evaluation_set/eval_data/task2/${name} \
+            --outdir "${tmpdir}"/test_${name} \
+            --uttid_prefix "task2_${name}" 
+    done
+    for f in spk1.scp utt2spk wav.scp; do
+        cat "${tmpdir}"/test_{real-recording,semi-real-playback,semi-real-realspk}/${f} | sort > data/test/${f}
+    done
+    utils/utt2spk_to_spk2utt.pl data/test/utt2spk > data/test/spk2utt
+    utils/validate_data_dir.sh --no-feats --no-text data/test
 
     rm -rf "$tmpdir"
 fi

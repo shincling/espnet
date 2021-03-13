@@ -240,7 +240,7 @@ class NeuralBeamformer(AbsSeparator):
                         )
                     else:
                         # output of multi-source WPE
-                        enhanced, ilens, others_b = self.beamformer(
+                        enhanced, ilens, others_b, snrs = self.beamformer(
                             enhanced, ilens, powers=powers
                         )
                     for spk in range(self.num_spk):

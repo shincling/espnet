@@ -494,6 +494,7 @@ class ConferencingSpeechPreprocessor(CommonPreprocessor):
 
                         # speech: (Nmic, Time)
                         # Note that this operation doesn't change the signal length
+                        clean_speech = speech
                         speech = scipy.signal.convolve(speech, clean_rir, mode="full")[
                             :, : speech.shape[1]
                         ]
@@ -511,8 +512,9 @@ class ConferencingSpeechPreprocessor(CommonPreprocessor):
                             clean_rir_early = clean_rir[:, :et]
                             # (Time, Nmic)
                             data[self.speech_ref_name] = scipy.signal.convolve(
-                                speech, clean_rir_early, mode="full"
-                            )[:, : speech.shape[1]].T
+                                clean_speech, clean_rir_early, mode="full"
+                            )[:, : clean_speech.shape[1]].T
+                            data['dereverb1'] = data[self.speech_ref_name]
 
                 # 2. Add Noise
                 if (

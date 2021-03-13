@@ -46,6 +46,8 @@ requirements = {
         "nara_wpe>=0.0.5",
         "torch_complex",
         "pytorch_wpe",
+        # ENH related
+        "ci_sdr @ git+https://github.com/fgnt/ci_sdr",
     ],
     "recipe": [
         "espnet_model_zoo",

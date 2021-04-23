@@ -17,8 +17,10 @@ from espnet2.enh.decoder.null_decoder import NullDecoder
 from espnet2.enh.decoder.stft_decoder import STFTDecoder
 from espnet2.enh.encoder.abs_encoder import AbsEncoder
 from espnet2.enh.encoder.conv_encoder import ConvEncoder
+from espnet2.enh.encoder.conv16k_encoder import Conv16kEncoder
 from espnet2.enh.encoder.null_encoder import NullEncoder
 from espnet2.enh.encoder.stft_encoder import STFTEncoder
+from espnet2.enh.encoder.wav2vec_encoder import Wav2vecEncoder
 from espnet2.enh.espnet_model import ESPnetEnhancementModel
 from espnet2.enh.separator.abs_separator import AbsSeparator
 from espnet2.enh.separator.asteroid_models import AsteroidModel_Converter
@@ -40,7 +42,7 @@ from espnet2.utils.types import str_or_none
 
 encoder_choices = ClassChoices(
     name="encoder",
-    classes=dict(stft=STFTEncoder, conv=ConvEncoder, same=NullEncoder),
+    classes=dict(stft=STFTEncoder, conv=ConvEncoder, conv16k=Conv16kEncoder, same=NullEncoder, wav2vec=Wav2vecEncoder),
     type_check=AbsEncoder,
     default="stft",
 )

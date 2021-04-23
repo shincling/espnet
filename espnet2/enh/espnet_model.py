@@ -5,8 +5,15 @@ from typing import Dict
 from typing import Optional
 from typing import Tuple
 
+import copy
+import fairseq
+import numpy as np
+import resampy
 import torch
+from torch.autograd import Variable
 from torch_complex.tensor import ComplexTensor
+import torch.nn as nn
+
 from typeguard import check_argument_types
 
 from espnet2.enh.decoder.abs_decoder import AbsDecoder
@@ -33,6 +40,58 @@ ALL_LOSS_TYPES = (
 EPS = torch.finfo(torch.get_default_dtype()).eps
 
 
+def wav2vec_feature(model, wavs, aim_rate = 16000):
+    """
+    Input: wavs: Tensor: [bs, num_spk, samples]
+    output: feature_wav2vec: [bs, num_spk, flens, 1024]
+    """
+    bs, num_spk, n_samples = wavs.shape
+    wavs = wavs.view(-1, n_samples)
+    wavs = 0.9 * wavs/wavs.abs().max(1)[0].unsqueeze(1)
+    # print('debug: wavs shape before', wavs.shape)
+    model.eval()
+    with torch.no_grad():
+        if aim_rate != 8000:
+            wavs_new = [resampy.resample(
+                wav.data.cpu().numpy().astype(np.float64).T, 8000, aim_rate, axis=0
+            ) for wav in wavs]
+            wavs = torch.tensor(wavs_new).float().to(wavs.device)
+            # print('debug: wavs shape after', wavs.shape)
+            feature_wav2vec = model(wavs, features_only=True, mask=False)['x']
+    return feature_wav2vec.view(bs,num_spk,-1,1024)
+
+class Discriminator_model(nn.Module):
+    """Speech enhancement or separation Frontend model"""
+    def __init__(self):
+        super().__init__()
+        self.model=  nn.Sequential(
+            nn.Linear(256,256),
+            nn.BatchNorm1d(2),
+            nn.PReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(256,256),
+            nn.BatchNorm1d(2),
+            nn.PReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(256,1),
+            # nn.Sigmoid()
+            )
+        self.conv1d = nn.Conv1d(1024, 256, kernel_size = 1)
+        self.pool = nn.AvgPool1d(2)
+
+    def forward(self, input):
+        # Input shape: BS, N_spk, Flens, wav2vec_dim (1024)
+        # return self.model(input)
+        
+        batch_size, num_spk, T, d = input.shape
+        input = input.view(-1, T, d)
+        input = input.permute(0,2,1) #BS*N,d,T
+        output = self.conv1d(input) # BS*N, 256, T'
+        output = output.permute(0,2,1).view(batch_size,num_spk,-1,256) # BS, N, T', 256
+        output = output.mean(2) # BS,N,256
+        output = self.model(output)  # BS, N , 1
+        return output
+
 class ESPnetEnhancementModel(AbsESPnetModel):
     """Speech enhancement or separation Frontend model"""
 
@@ -42,6 +101,8 @@ class ESPnetEnhancementModel(AbsESPnetModel):
         separator: AbsSeparator,
         decoder: AbsDecoder,
         stft_consistency: bool = False,
+        wav2vec_loss: bool = False,
+        wav2vec_gan_loss: bool = False,
         loss_type: str = "mask_mse",
         mask_type: Optional[str] = None,
     ):
@@ -62,6 +123,23 @@ class ESPnetEnhancementModel(AbsESPnetModel):
         self.mask_type = mask_type.upper() if mask_type else None
         # get loss type for model training
         self.loss_type = loss_type
+
+        # wav2vec realted
+        self.wav2vec_loss = wav2vec_loss
+        checkpoint = torch.load('/data3/xlsr_53_56k.pt')
+        wav2vec_encoder = fairseq.models.wav2vec.Wav2Vec2Model.build_model(checkpoint['cfg']['model'])
+        wav2vec_encoder.load_state_dict(checkpoint['model'])
+        wav2vec_params = list(wav2vec_encoder.parameters())
+        for p in wav2vec_params:
+            p.requires_grad = False
+            # p.requires_grad = True
+        self.wav2vec_encoder = wav2vec_encoder
+        # print('init model.train:', wav2vec_encoder.training)
+        self.wav2vec_gan_loss = False
+        if wav2vec_gan_loss:
+            self.wav2vec_gan_loss = wav2vec_gan_loss
+            self.discriminator =  Discriminator_model()
+
         # whether to compute the TF-domain loss while enforcing STFT consistency
         self.stft_consistency = stft_consistency
 
@@ -233,11 +311,31 @@ class ESPnetEnhancementModel(AbsESPnetModel):
                 si_snr = -si_snr_loss.detach()
 
             stats = dict(
-                si_snr=si_snr,
+                si_snr_loss=si_snr_loss,
+                wav2vec_loss=wav2vec_loss,
                 loss=loss.detach(),
             )
         else:
-            stats = dict(si_snr=-loss.detach(), loss=loss.detach())
+            if self.wav2vec_loss:
+                si_snr_loss = others["si_snr_loss"]
+                wav2vec_loss = others["wav2vec_loss"]
+                stats = dict(
+                    si_snr_loss=si_snr_loss,
+                    wav2vec_loss=wav2vec_loss,
+                    loss=loss.detach(),
+                )
+            elif self.wav2vec_gan_loss:
+                si_snr_loss = others["si_snr_loss"]
+                stats = dict(
+                    si_snr_loss=si_snr_loss,
+                    D_loss_ref=others["D_loss_ref"],
+                    D_loss_pre=others["D_loss_pre"],
+                    G_loss=others["G_loss"],
+                    GAN=others["GAN_loss"],
+                    loss=loss.detach(),
+                )
+            else:
+                stats = dict(si_snr=-loss.detach(), loss=loss.detach())
 
         # force_gatherable: to-device and to-tensor if scalar for DataParallel
         loss, stats, weight = force_gatherable((loss, stats, batch_size), loss.device)
@@ -277,7 +375,11 @@ class ESPnetEnhancementModel(AbsESPnetModel):
             perm: () best permutation
         """
         feature_mix, flens = self.encoder(speech_mix, speech_lengths)
+        # print('debug wav2vec params:', list(self.encoder.named_parameters())[0])
+        # print('debug encoder size:', feature_mix.shape)
         feature_pre, flens, others = self.separator(feature_mix, flens)
+        # print('debug tcn params:', list(self.separator.named_parameters())[0])
+        # print('debug separator size (spk1):', feature_pre[0].shape)
 
         if self.loss_type != "si_snr":
             spectrum_mix = feature_mix
@@ -439,6 +541,91 @@ class ESPnetEnhancementModel(AbsESPnetModel):
             si_snr_loss, perm = self._permutation_loss(
                 speech_ref, speech_pre, self.si_snr_loss_zeromean
             )
+            # print("debug: sisnr loss here:", si_snr_loss)
+
+            if self.wav2vec_loss:
+                # best perfmute first
+                speech_pre_permuted = []
+                for sample_idx, each_perm in enumerate(perm):
+                    # each_perf like [1,0,2]
+                    speech_pre_sort = torch.stack([speech_pre[spk_idx][sample_idx] for spk_idx in each_perm], dim=0) # [num_spk, Samples]
+                    speech_pre_permuted.append(speech_pre_sort) 
+                speech_pre_permuted = torch.stack(speech_pre_permuted, dim=0) # [BS, num_spk, Samples]
+                wav2vec_feats_pre=wav2vec_feature(self.wav2vec_encoder,speech_pre_permuted)
+
+                speech_ref = torch.stack(speech_ref, dim=1) # [BS,num_spk,Samples]
+                wav2vec_feats_ref=wav2vec_feature(self.wav2vec_encoder,speech_ref)
+                # print('debug speech_ref:',speech_ref.shape)
+
+                assert wav2vec_feats_pre.shape == wav2vec_feats_ref.shape, (wav2vec_feats_pre.shape, wav2vec_feats_ref.shape)
+
+                # loss_wav2vec = self.tf_mse_loss(100* wav2vec_feats_ref,100* wav2vec_feats_pre).mean()
+                loss_wav2vec = self.tf_mse_loss(100* wav2vec_feats_ref,100* wav2vec_feats_pre).mean()
+                
+                loss = 0.05 * si_snr_loss + loss_wav2vec
+                others = {"si_snr_loss": si_snr_loss, "wav2vec_loss": loss_wav2vec}
+                return loss, speech_pre, others, speech_lengths, perm
+            
+            elif self.wav2vec_gan_loss:
+                loss_func = nn.BCEWithLogitsLoss()
+
+                speech_pre_permuted = []
+                for sample_idx, each_perm in enumerate(perm):
+                    # each_perf like [1,0,2]
+                    speech_pre_sort = torch.stack([speech_pre[spk_idx][sample_idx] for spk_idx in each_perm], dim=0) # [num_spk, Samples]
+                    speech_pre_permuted.append(speech_pre_sort) 
+                speech_pre_permuted = torch.stack(speech_pre_permuted, dim=0) # [BS, num_spk, Samples]
+                wav2vec_feats_pre=wav2vec_feature(self.wav2vec_encoder,speech_pre_permuted)# [BS,num_spk,flens,1024]
+
+                speech_ref = torch.stack(speech_ref, dim=1) # [BS,num_spk,Samples]
+                wav2vec_feats_ref=wav2vec_feature(self.wav2vec_encoder,speech_ref)# [BS,num_spk,flens,1024]
+                # print('debug speech_ref:',speech_ref.shape)
+                assert wav2vec_feats_pre.shape == wav2vec_feats_ref.shape, (wav2vec_feats_pre.shape, wav2vec_feats_ref.shape)
+
+
+
+                for p in self.discriminator.parameters():
+                    p.data.clamp_(-5, 5)
+                """ For the GAN training """
+                # print("wav2vec_feats_ref:", wav2vec_feats_ref.shape)
+                speech_ref_dis = self.discriminator(wav2vec_feats_ref.detach()) # [BS,num_spk,flens,1] or [BS, num_spk, 1]
+                print("speech_ref_dis:",speech_ref_dis[0,0,:10])
+                loss_dis_ref = self.tf_mse_loss(speech_ref_dis, torch.ones_like(speech_ref_dis)).mean()
+                # loss_dis_ref = self.tf_mse_loss(speech_ref_dis, torch.zeros_like(speech_ref_dis)).mean()
+                # loss_dis_ref = speech_ref_dis.mean()
+
+                speech_pre_dis = self.discriminator(wav2vec_feats_pre.detach()) # [BS,num_spk,flens,1] or [BS, num_spk, 1]
+                print("speech_pre_dis:",speech_pre_dis[0,0,:10])
+                loss_dis_pre = self.tf_mse_loss(speech_pre_dis, torch.zeros_like(speech_pre_dis)).mean()
+                # loss_dis_pre = speech_pre_dis.mean()
+
+                loss_dis = loss_dis_ref + loss_dis_pre # only train the Discriminator here
+                # loss_dis =  loss_dis_pre - loss_dis_ref  # only train the Discriminator here with WGAN
+
+                # copy the discriminator everytime
+                new_dis_model = copy.deepcopy(self.discriminator) 
+                new_dis_params = list(new_dis_model.parameters())
+                for p in new_dis_params:
+                    p.requires_grad = False
+                # print("speech_pre_permuted:",speech_pre_permuted.shape)
+                new_dis = new_dis_model(wav2vec_feats_pre)
+                print("speech_pre_new:",new_dis[0,0,:10])
+                loss_gen = self.tf_mse_loss(new_dis, torch.ones_like(speech_pre_dis)).mean() # only train the Generator here
+                # loss_gen = -1 * new_dis.mean() # only train the Generator here
+                
+                loss_gan = loss_dis + loss_gen
+                loss = si_snr_loss + 10 * loss_gan
+
+                others = {
+                    "si_snr_loss": si_snr_loss, 
+                    "D_loss_ref": loss_dis_ref,
+                    "D_loss_pre": loss_dis_pre,
+                    "GAN_loss": loss_gan,
+                    "G_loss": loss_gen
+                }
+                # print("others:",others)
+                return loss, speech_pre, others, speech_lengths, perm
+
             loss = si_snr_loss
 
             return loss, speech_pre, None, speech_lengths, perm

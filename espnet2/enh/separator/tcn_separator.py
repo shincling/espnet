@@ -43,7 +43,7 @@ class TCNSeparator(AbsSeparator):
 
         self._num_spk = num_spk
 
-        if nonlinear not in ("sigmoid", "relu", "tanh"):
+        if nonlinear not in ("sigmoid", "relu", "tanh", "none"):
             raise ValueError("Not supporting nonlinear={}".format(nonlinear))
 
         self.tcn = TemporalConvNet(

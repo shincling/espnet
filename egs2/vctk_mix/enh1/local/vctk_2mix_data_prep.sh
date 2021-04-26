@@ -41,7 +41,7 @@ for f in $wavdir/tr $wavdir/cv $wavdir/tt; do
 done
 
 # check if the script file exists.
-for f in $srcdir/mix_2_spk_${min_or_max}_tr_mix $srcdir/mix_2_spk_${min_or_max}_cv_mix $srcdir/mix_2_spk_${min_or_max}_tt_mix; do
+for f in $srcdir/vctk_mix_2_spk_${min_or_max}_tr_mix $srcdir/vctk_mix_2_spk_${min_or_max}_cv_mix $srcdir/vctk_mix_2_spk_${min_or_max}_tt_mix; do
   if [ ! -f $f ]; then
     echo "Could not find $f.";
     exit 1;
@@ -53,11 +53,10 @@ data=./data
 for x in tr cv tt; do
   target_folder=$(eval echo \$$x)
   mkdir -p ${data}/$target_folder
-  cat $srcdir/mix_2_spk_${min_or_max}_${x}_mix | \
-    awk -v dir=$wavdir/$x '{printf("%s %s/mix/%s.wav\n", $1, dir, $1)}' | \
-    awk '{split($1, lst, "_"); spk=substr(lst[1],1,3)"_"substr(lst[3],1,3); print(spk"_"$0)}' | sort > ${data}/${target_folder}/wav.scp
+  cat $srcdir/vctk_mix_2_spk_${min_or_max}_${x}_mix | \
+    awk -v dir=$wavdir/$x '{printf("%s %s/mix/%s.wav\n", $1, dir, $1)}' | sort > ${data}/${target_folder}/wav.scp
 
-  awk '{split($1, lst, "_"); spk=lst[1]"_"lst[2]; print($1, spk)}' ${data}/${target_folder}/wav.scp | sort > ${data}/${target_folder}/utt2spk
+  awk '{split($1, lst, "_"); spk=lst[1]"_"lst[4]; print($1, spk)}' ${data}/${target_folder}/wav.scp | sort > ${data}/${target_folder}/utt2spk
   utt2spk_to_spk2utt.pl ${data}/${target_folder}/utt2spk > ${data}/${target_folder}/spk2utt
 done
 

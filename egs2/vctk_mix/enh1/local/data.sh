@@ -50,8 +50,13 @@ recog_set="tt_"${min_or_max}_${sample_rate}
 
 ### This part is for vctk mix
 ### Create mixtures for 2 speakers
-local/vctk_create_mixture.sh ${vctk_2mix_scripts} ${VCTK} ${vctk_full_wav} \
-    ${vctk_2mix_wav} || exit 1;
+if [ ! -d ${vctk_2mix_wav} ]; then
+    local/vctk_create_mixture.sh ${vctk_2mix_scripts} ${VCTK} ${vctk_full_wav} \
+        ${vctk_2mix_wav} || exit 1;
+else
+    log "Already exists. Skipped."
+fi
+
 local/vctk_2mix_data_prep.sh --min-or-max ${min_or_max} --sample-rate ${sample_rate} \
     ${vctk_2mix_wav}/wav${sample_rate}/${min_or_max} ${vctk_2mix_scripts} ${VCTK} || exit 1;
 

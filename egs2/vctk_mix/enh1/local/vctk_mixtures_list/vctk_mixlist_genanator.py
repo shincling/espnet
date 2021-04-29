@@ -39,6 +39,7 @@ def prepare_data(args):
     outfile = Path(args.outfile).expanduser().resolve()
     spk_list = [spk_name.name for spk_name in Path(audiodir/"wav48").glob("*")]
     assert len(spk_list)==109, "VCTK should get 109 speakers in total, but got {} now".format(len(spk_list))
+    spk_list.remove("p315") # VCTK lost the transcription for Speaker P315, just drop it from now on.
 
     audios = {
         spk: [str(sample.relative_to(audiodir)) for sample in audiodir.rglob(spk + "/*." + args.audio_format)] 
@@ -90,7 +91,7 @@ def get_parser():
     parser.add_argument(
         "--num_spks_test",
         type=int, 
-        default=19, 
+        default=18, 
         help="number of unknwon speakers from total(109)",
     )
 

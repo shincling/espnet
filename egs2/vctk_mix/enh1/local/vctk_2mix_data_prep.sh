@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Copyright  2021  CASIA (Authors: Jing Shi)
+# Apache 2.0
 set -e
 set -u
 set -o pipefail
@@ -21,12 +23,11 @@ set -e
 set -u
 set -o pipefail
 
-find_transcripts=$KALDI_ROOT/egs/wsj/s5/local/find_transcripts.pl
 normalize_transcript=$KALDI_ROOT/egs/wsj/s5/local/normalize_transcript.pl
 
 wavdir=$1
 srcdir=$2
-wsj_full_wav=$3
+vctk_full_wav=$3
 
 tr="tr_${min_or_max}_${sample_rate}"
 cv="cv_${min_or_max}_${sample_rate}"
@@ -55,6 +56,8 @@ for x in tr cv tt; do
   mkdir -p ${data}/$target_folder
   cat $srcdir/vctk_mix_2_spk_${min_or_max}_${x}_mix | \
     awk -v dir=$wavdir/$x '{printf("%s %s/mix/%s.wav\n", $1, dir, $1)}' | sort > ${data}/${target_folder}/wav.scp
+    awk '{split($1, lst, "_"); spk=lst[1]"_"lst[4]"_"lst[2]"_"lst[3]"_"lst[5]"_"lst[6]; print(spk, $2)}' ${data}/${target_folder}/wav.scp | \
+     sort > ${data}/${target_folder}/wav.scp 
 
   awk '{split($1, lst, "_"); spk=lst[1]"_"lst[4]; print($1, spk)}' ${data}/${target_folder}/wav.scp | sort > ${data}/${target_folder}/utt2spk
   utt2spk_to_spk2utt.pl ${data}/${target_folder}/utt2spk > ${data}/${target_folder}/spk2utt
@@ -65,36 +68,37 @@ if [[ "$min_or_max" = "min" ]]; then
   exit 0
 fi
 
+for x in tr cv tt; do
+  target_folder=$(eval echo \$$x)
 
-# rm -r tmp/ 2>/dev/null
-mkdir -p tmp
-cd tmp
-for i in si_tr_s si_et_05 si_dt_05; do
-    cp ${wsj_full_wav}/${i}.scp .
-done
-
-# Finding the transcript files:
-for x in `ls ${wsj_full_wav}/links/`; do find -L ${wsj_full_wav}/links/$x -iname '*.dot'; done > dot_files.flist
-
-# Convert the transcripts into our format (no normalization yet)
-for f in si_tr_s si_et_05 si_dt_05; do
-  cat ${f}.scp | awk '{print $1}' | ${find_transcripts} dot_files.flist > ${f}.trans1
+  awk '{split($1, lst, "_"); spk=lst[1]"_"lst[4]; print($1, spk)}' ${data}/${target_folder}/wav.scp | sort > ${data}/${target_folder}/utt2spk
+  awk '{split($1, lst, "_"); spk=lst[1]; utt=lst[1]"_"lst[2]; print(spk"/"utt".txt")}' ${data}/${target_folder}/wav.scp > ${data}/${target_folder}/utt_spk1
+  awk -v dir=${vctk_full_wav} '{printf("%s/txt/%s\n", dir, $1)}' ${data}/${target_folder}/utt_spk1 > ${data}/${target_folder}/tmp_spk1_0
+  cat ${data}/${target_folder}/tmp_spk1_0 | while read line 
+  do
+      cat ${line} | sed 's/`	//g' # avoid the bad line of """It'`    s the tip of the iceberg."""
+      [ `tail -n1 ${line} | wc -l` -eq 1 ] || echo ""  # add newline if there is no "\n" in text
+  done > ${data}/${target_folder}/tmp_spk1_1
+  
+  awk '{split($1, lst, "_"); spk=lst[4]; utt=lst[4]"_"lst[5]; print(spk"/"utt".txt")}' ${data}/${target_folder}/wav.scp  > ${data}/${target_folder}/utt_spk2
+  awk -v dir=${vctk_full_wav} '{printf("%s/txt/%s\n", dir, $1)}' ${data}/${target_folder}/utt_spk2 > ${data}/${target_folder}/tmp_spk2_0
+  cat ${data}/${target_folder}/tmp_spk2_0 | while read line 
+  do
+      cat ${line} | sed 's/`	//g' # avoid the bad line of """It'`    s the tip of the iceberg."""
+      [ `tail -n1 ${line} | wc -l` -eq 1 ] || echo ""  # add newline if there is no "\n" in text
+  done > ${data}/${target_folder}/tmp_spk2_1
 
   # Do some basic normalization steps.  At this point we don't remove OOVs--
   # that will be done inside the training scripts, as we'd like to make the
   # data-preparation stage independent of the specific lexicon used.
+  # TODO: Need to normalize it.
   noiseword="<NOISE>"
-  cat ${f}.trans1 | ${normalize_transcript} ${noiseword} | sort > ${f}.txt || exit 1;
+  cat ${data}/${target_folder}/tmp_spk1_1 | ${normalize_transcript} ${noiseword}  > ${data}/${target_folder}/tmp_spk1_2|| exit 1;
+  cat ${data}/${target_folder}/tmp_spk2_1 | ${normalize_transcript} ${noiseword}  > ${data}/${target_folder}/tmp_spk2_2|| exit 1;
+
+  paste -d" " ${data}/${target_folder}/wav.scp ${data}/${target_folder}/tmp_spk1_2 | awk '{$2=""; print($0)}' > ${data}/${target_folder}/text_spk1
+  paste -d" " ${data}/${target_folder}/wav.scp ${data}/${target_folder}/tmp_spk2_2 | awk '{$2=""; print($0)}' > ${data}/${target_folder}/text_spk2
+
+  rm ${data}/${target_folder}/tmp*
+  rm ${data}/${target_folder}/utt_spk*
 done
-
-# change to the original path
-cd ..
-
-awk '(ARGIND==1) {txt[$1]=$0} (ARGIND==2) {split($1, lst, "_"); utt1=lst[3]; text=txt[utt1]; print($1, text)}' tmp/si_tr_s.txt ${data}/${tr}/wav.scp | awk '{$2=""; print $0}' > ${data}/${tr}/text_spk1
-awk '(ARGIND==1) {txt[$1]=$0} (ARGIND==2) {split($1, lst, "_"); utt2=lst[5]; text=txt[utt2]; print($1, text)}' tmp/si_tr_s.txt ${data}/${tr}/wav.scp | awk '{$2=""; print $0}' > ${data}/${tr}/text_spk2
-awk '(ARGIND==1) {txt[$1]=$0} (ARGIND==2) {split($1, lst, "_"); utt1=lst[3]; text=txt[utt1]; print($1, text)}' tmp/si_tr_s.txt ${data}/${cv}/wav.scp | awk '{$2=""; print $0}' > ${data}/${cv}/text_spk1
-awk '(ARGIND==1) {txt[$1]=$0} (ARGIND==2) {split($1, lst, "_"); utt2=lst[5]; text=txt[utt2]; print($1, text)}' tmp/si_tr_s.txt ${data}/${cv}/wav.scp | awk '{$2=""; print $0}' > ${data}/${cv}/text_spk2
-awk '(ARGIND<=2) {txt[$1]=$0} (ARGIND==3) {split($1, lst, "_"); utt1=lst[3]; text=txt[utt1]; print($1, text)}' tmp/si_dt_05.txt tmp/si_et_05.txt ${data}/${tt}/wav.scp | awk '{$2=""; print $0}' > ${data}/${tt}/text_spk1
-awk '(ARGIND<=2) {txt[$1]=$0} (ARGIND==3) {split($1, lst, "_"); utt2=lst[5]; text=txt[utt2]; print($1, text)}' tmp/si_dt_05.txt tmp/si_et_05.txt ${data}/${tt}/wav.scp | awk '{$2=""; print $0}' > ${data}/${tt}/text_spk2
-
-rm -r tmp

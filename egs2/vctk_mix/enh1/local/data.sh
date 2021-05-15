@@ -78,20 +78,3 @@ log "mkdir -p data/vctk"
 mkdir -p data/vctk
 log "mv data/{dev_dt_*,local,test_dev*,test_eval*,train_si284} data/vctk"
 mv data/{dev_dt_*,local,test_dev*,test_eval*,train_si284} data/vctk
-
-
-
-
-log "Prepare text from lng_modl dir: ${vctk1}/13-32.1/vctk1/doc/lng_modl/lm_train/np_data/{87,88,89}/*.z -> ${other_text}"
-mkdir -p "$(dirname ${other_text})"
-
-# NOTE(kamo): Give utterance id to each texts.
-zcat ${vctk1}/13-32.1/vctk1/doc/lng_modl/lm_train/np_data/{87,88,89}/*.z | \
-    grep -v "<" | tr "[:lower:]" "[:upper:]" | \
-    awk '{ printf("vctk1_lng_%07d %s\n",NR,$0) } ' > ${other_text}
-
-
-
-log "Create non linguistic symbols: ${nlsyms}"
-cut -f 2- data/vctk/train_si284/text | tr " " "\n" | sort | uniq | grep "<" > ${nlsyms}
-cat ${nlsyms}

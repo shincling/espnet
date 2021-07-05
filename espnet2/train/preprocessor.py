@@ -17,6 +17,32 @@ from espnet2.text.cleaner import TextCleaner
 from espnet2.text.token_id_converter import PhoneIDConverter
 from espnet2.text.token_id_converter import TokenIDConverter
 
+spk_to_idx_vctk={ 'p225': 0, 'p226': 1, 'p227': 2, 'p228': 3, 'p229': 4, 'p230': 5, 'p231': 6, 'p232': 7, 'p233': 8,
+    'p234': 9, 'p236': 10, 'p237': 11, 'p238': 12, 'p239': 13, 'p240': 14, 'p241': 15, 'p243': 16, 'p244': 17,
+    'p245': 18, 'p246': 19, 'p247': 20, 'p248': 21, 'p249': 22, 'p250': 23, 'p251': 24, 'p252': 25, 'p253': 26,
+    'p254': 27, 'p255': 28, 'p256': 29, 'p257': 30, 'p258': 31, 'p259': 32, 'p260': 33, 'p261': 34, 'p262': 35,
+    'p263': 36, 'p264': 37, 'p265': 38, 'p266': 39, 'p267': 40, 'p268': 41, 'p269': 42, 'p270': 43, 'p271': 44,
+    'p272': 45, 'p273': 46, 'p274': 47, 'p275': 48, 'p276': 49, 'p277': 50, 'p278': 51, 'p279': 52, 'p280': 53,
+    'p281': 54, 'p282': 55, 'p283': 56, 'p284': 57, 'p285': 58, 'p286': 59, 'p287': 60, 'p288': 61, 'p292': 62,
+    'p293': 63, 'p294': 64, 'p295': 65, 'p297': 66, 'p298': 67, 'p299': 68, 'p300': 69, 'p301': 70, 'p302': 71,
+    'p303': 72, 'p304': 73, 'p305': 74, 'p306': 75, 'p307': 76, 'p308': 77, 'p310': 78, 'p311': 79, 'p312': 80,
+    'p313': 81, 'p314': 82, 'p316': 83, 'p317': 84, 'p318': 85, 'p323': 86, 'p326': 87, 'p329': 88, 'p330': 89,
+    'p333': 90, 'p334': 91, 'p335': 92, 'p336': 93, 'p339': 94, 'p340': 95, 'p341': 96, 'p343': 97, 'p345': 98,
+    'p347': 99, 'p351': 100, 'p360': 101, 'p361': 102, 'p362': 103, 'p363': 104, 'p364': 105, 'p374': 106, 'p376': 107,
+    } # this should be identical with the VQ decoder idx.
+
+spk_to_idx_wsj0={ '011': 0, '013': 1, '014': 2, '015': 3, '016': 4, '017': 5, '018': 6, '019': 7, '01b': 8, '01d': 9, '01e': 10,
+        '01f': 11, '01g': 12, '01i': 13, '01j': 14, '01k': 15, '01l': 16, '01m': 17, '01p': 18, '01q': 19, '01r': 20,
+        '01t': 21, '01u': 22, '01w': 23, '01y': 24, '01z': 25, '020': 26, '021': 27, '024': 28, '026': 29, '027': 30,
+        '028': 31, '029': 32, '02b': 33, '02c': 34, '02e': 35, '204': 36, '205': 37, '206': 38, '207': 39, '208': 40,
+        '209': 41, '20a': 42, '20b': 43, '20c': 44, '20d': 45, '20e': 46, '20f': 47, '20g': 48, '20h': 49, '20i': 50,
+        '20l': 51, '20m': 52, '20n': 53, '20o': 54, '20p': 55, '20q': 56, '20r': 57, '20t': 58, '20v': 59, '401': 60,
+        '403': 61, '404': 62, '405': 63, '406': 64, '407': 65, '408': 66, '409': 67, '40a': 68, '40b': 69, '40c': 70,
+        '40d': 71, '40e': 72, '40f': 73, '40g': 74, '40h': 75, '40i': 76, '40j': 77, '40k': 78, '40l': 79, '40m': 80,
+        '40n': 81, '40p': 82, '012': 83, '01a': 84, '01c': 85, '01n': 86, '01o': 87, '01s': 88, '01v': 89, '01x': 90,
+        '022': 91, '023': 92, '025': 93, '02a': 94, '02d': 95, '20j': 96, '20k': 97, '20s': 98, '20u': 99, '40o': 100,
+    } # this should be identical with the WSJ0 decoder idx.
+
 class AbsPreprocessor(ABC):
     def __init__(self, train: bool):
         self.train = train
@@ -437,6 +463,83 @@ class PhonemePreprocessor_multi(AbsPreprocessor):
                 text = self.text_cleaner(text)
                 tokens = self.tokenizer.text2tokens(text)
                 text_ints = self.token_id_converter.tokens2ids(tokens)
+                if None in text_ints:
+                    assert 1==0, (text, tokens, text_ints, uid)
                 data[text_n] = np.array(text_ints, dtype=np.int64)
+
+        if "speakers_str" in data: 
+            if  data["speakers_str"].split('_')[0] in spk_to_idx_vctk and data["speakers_str"].split('_')[0] in spk_to_idx_vctk:
+                spk_to_idx = spk_to_idx_vctk
+            elif data["speakers_str"].split('_')[0] in spk_to_idx_wsj0 and data["speakers_str"].split('_')[0] in spk_to_idx_wsj0:
+                spk_to_idx = spk_to_idx_wsj0
+            data["spk1_str"] = np.array([spk_to_idx[data["speakers_str"].split('_')[0]]], dtype=np.int64)
+            data["spk2_str"] = np.array([spk_to_idx[data["speakers_str"].split('_')[1]]], dtype=np.int64)
+            data.pop("speakers_str")
+        assert check_return_type(data)
+        return data
+
+class VQPreprocessor_multi(AbsPreprocessor):
+    def __init__(
+        self,
+        train: bool,
+        token_type: str = None,
+        token_list: Union[Path, str, Iterable[str]] = None,
+        bpemodel: Union[Path, str, Iterable[str]] = None,
+        text_cleaner: Collection[str] = None,
+        g2p_type: str = None,
+        unk_symbol: str = "<unk>",
+        space_symbol: str = "<space>",
+        non_linguistic_symbols: Union[Path, str, Iterable[str]] = None,
+        delimiter: str = None,
+        vq_name: list = ["vq"],
+        text_name: list = ["text"],
+    ):
+        super().__init__(train)
+        self.train = train
+        self.vq_name = vq_name
+        self.text_name = text_name
+
+        if token_type is not None:
+            if token_list is None:
+                raise ValueError("token_list is required if token_type is not None")
+            self.text_cleaner = TextCleaner(text_cleaner)
+
+            self.tokenizer = build_tokenizer(
+                token_type=token_type,
+                bpemodel=bpemodel,
+                delimiter=delimiter,
+                space_symbol=space_symbol,
+                non_linguistic_symbols=non_linguistic_symbols,
+                g2p_type=g2p_type,
+            )
+            self.token_id_converter = TokenIDConverter(
+                token_list=token_list,
+                unk_symbol=unk_symbol,
+            )
+        else:
+            self.text_cleaner = None
+            self.tokenizer = None
+            self.token_id_converter = None
+
+    def __call__(
+        self, uid: str, data: Dict[str, Union[str, np.ndarray]]
+    ) -> Dict[str, np.ndarray]:
+        assert check_argument_types()
+
+        for vq_n in self.vq_name:
+            if vq_n in data:
+                vq_ints = list(map(int,data[vq_n].strip().split()))
+                data[vq_n] = np.array(vq_ints, dtype=np.int64)
+
+        for text_n in self.text_name:
+            if text_n in data and self.tokenizer is not None:
+                text = data[text_n]
+                text = self.text_cleaner(text)
+                tokens = self.tokenizer.text2tokens(text)
+                text_ints = self.token_id_converter.tokens2ids(tokens)
+                if None in text_ints:
+                    assert 1==0, (text, tokens, text_ints, uid)
+                data[text_n] = np.array(text_ints, dtype=np.int64)
+
         assert check_return_type(data)
         return data

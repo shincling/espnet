@@ -98,7 +98,7 @@ class LMTask(AbsTask):
             "--token_type",
             type=str,
             default="bpe",
-            choices=["bpe", "char", "word"],
+            choices=["bpe", "char", "word", "phn"],
             help="",
         )
         group.add_argument(
@@ -111,6 +111,11 @@ class LMTask(AbsTask):
             "--non_linguistic_symbols",
             type=str_or_none,
             help="non_linguistic_symbols file path",
+        )
+        parser.add_argument(
+            "--unk_symbol",
+            type=str_or_none,
+            help="unknown symbol",
         )
         parser.add_argument(
             "--cleaner",
@@ -159,6 +164,7 @@ class LMTask(AbsTask):
                 text_cleaner=args.cleaner,
                 g2p_type=args.g2p,
                 non_linguistic_symbols=args.non_linguistic_symbols,
+                unk_symbol=args.unk_symbol,
             )
         else:
             retval = None

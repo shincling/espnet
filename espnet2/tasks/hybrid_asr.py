@@ -29,6 +29,9 @@ from espnet2.asr.encoder.abs_encoder import AbsEncoder
 from espnet2.asr.encoder.conformer_encoder import ConformerEncoder
 from espnet2.asr.encoder.rnn_encoder import RNNEncoder
 from espnet2.asr.encoder.rnn_encoder_mix import RNNEncoderMix
+from espnet2.asr.encoder.rnn_encoder_mix_withSpk import RNNEncoderMix_spk
+from espnet2.asr.encoder.tcn_separator import TCNSeparator
+from espnet2.asr.encoder.dprnn_separator import DPRNNSeparator
 from espnet2.asr.encoder.transformer_encoder import TransformerEncoder
 from espnet2.asr.encoder.contextual_block_transformer_encoder import (
     ContextualBlockTransformerEncoder,  # noqa: H301
@@ -36,7 +39,9 @@ from espnet2.asr.encoder.contextual_block_transformer_encoder import (
 from espnet2.asr.encoder.vgg_rnn_encoder import VGGRNNEncoder
 from espnet2.asr.encoder.wav2vec2_encoder import FairSeqWav2Vec2Encoder
 from espnet2.asr.frontend.abs_frontend import AbsFrontend
+from espnet2.asr.frontend.conv_frontend import ConvEncoder
 from espnet2.asr.frontend.default import DefaultFrontend
+from espnet2.asr.frontend.melgan import MelGANDiscriminator
 from espnet2.asr.frontend.windowing import SlidingWindow
 from espnet2.asr.preencoder.abs_preencoder import AbsPreEncoder
 from espnet2.asr.preencoder.sinc import LightweightSincConvs
@@ -62,7 +67,12 @@ from espnet2.utils.types import str_or_none
 
 frontend_choices = ClassChoices(
     name="frontend",
-    classes=dict(default=DefaultFrontend, sliding_window=SlidingWindow),
+    classes=dict(
+        default=DefaultFrontend,
+        sliding_window=SlidingWindow,
+        melgan=MelGANDiscriminator,
+        conv=ConvEncoder,
+    ),
     type_check=AbsFrontend,
     default="default",
 )
@@ -102,6 +112,9 @@ encoder_choices = ClassChoices(
         rnn=RNNEncoder,
         wav2vec2=FairSeqWav2Vec2Encoder,
         rnn_mix=RNNEncoderMix,
+        rnn_mix_spk=RNNEncoderMix_spk,
+        tcn=TCNSeparator,
+        dprnn=DPRNNSeparator,
     ),
     type_check=AbsEncoder,
     default="rnn",
@@ -309,7 +322,7 @@ class ASRTask(AbsTask):
             retval = ("speech_mix", "phn_ref1", "phn_ref2")
         else:
             # Recognition mode
-            retval = ("speech",)
+            retval = ("speech_mix",)
         return retval
 
     @classmethod
@@ -317,6 +330,11 @@ class ASRTask(AbsTask):
         cls, train: bool = True, inference: bool = False
     ) -> Tuple[str, ...]:
         retval = ()
+        if not inference:
+            retval = ("speakers_str",)
+        else:
+            retval = ()
+
         assert check_return_type(retval)
         return retval
 
@@ -325,12 +343,14 @@ class ASRTask(AbsTask):
         assert check_argument_types()
         if isinstance(args.token_list, str):
             with open(args.token_list, encoding="utf-8") as f:
-                token_list = [line.rstrip() for line in f]
+                token_list = [line.rstrip() for line in f]  # Remove the <sos>/<eos> symbol
+                token_list = token_list[-1] if token_list[-1] == "<sos>/<eos>" else token_list
 
             # Overwriting token_list to keep it as "portable".
             args.token_list = list(token_list)
         elif isinstance(args.token_list, (tuple, list)):
-            token_list = list(args.token_list)
+            token_list = list(args.token_list)     # Remove the <sos>/<eos> symbol
+            token_list = token_list[-1] if token_list[-1] == "<sos>/<eos>" else token_list
         else:
             raise RuntimeError("token_list must be str or list")
         vocab_size = len(token_list)

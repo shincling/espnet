@@ -98,8 +98,7 @@ class CTC(torch.nn.Module):
             if self.reduce:
                 # Batch-size average
                 loss = loss.sum() / size
-            else:
-                loss = loss / size
+
             return loss
 
         elif self.ctc_type == "warpctc":
